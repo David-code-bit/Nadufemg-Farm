@@ -256,65 +256,55 @@ orderForm.addEventListener("submit", async function (event) {
       createdAt: window.firebaseServerTimestamp()
     };
 
+        // Save the order or booking to Firebase
     const savedOrder = await window.firebaseAddDoc(
       window.firebaseCollection(window.firebaseDB, "orders"),
       orderData
     );
 
-    // Save the order or booking to Firebase
-const savedOrder = await window.firebaseAddDoc(
-  window.firebaseCollection(window.firebaseDB, "orders"),
-  orderData
-);
+    // Prepare the email notification
+    const emailParams = {
+      order_id: savedOrder.id,
+      order_type: isBooking ? "Booking Request" : "New Order",
+      name: name,
+      phone: phone,
+      product: product,
+      age_type: ageType,
+      quantity: `${quantity} ${quantityUnit}`,
+      preferred_date: preferredDate || "Not specified",
+      delivery: delivery,
+      location: location || "Not provided",
+      message: message || "None"
+    };
 
-// Prepare the email notification
-const emailParams = {
-  order_id: savedOrder.id,
-  order_type: isBooking ? "Booking Request" : "New Order",
-  name: name,
-  phone: phone,
-  product: product,
-  age_type: ageType,
-  quantity: `${quantity} ${quantityUnit}`,
-  preferred_date: preferredDate || "Not specified",
-  delivery: delivery,
-  location: location || "Not provided",
-  message: message || "None"
-};
+    // Send email notification using EmailJS
+    try {
+      if (
+        window.emailjs &&
+        window.NADUFEMG_EMAILJS_CONFIG
+      ) {
+        await window.emailjs.send(
+          window.NADUFEMG_EMAILJS_CONFIG.serviceID,
+          window.NADUFEMG_EMAILJS_CONFIG.templateID,
+          emailParams
+        );
 
-// Send email notification using EmailJS
-try {
-  if (
-    window.emailjs &&
-    window.NADUFEMG_EMAILJS_CONFIG
-  ) {
-    await window.emailjs.send(
-      window.NADUFEMG_EMAILJS_CONFIG.service_j0jr6x9,
-      window.NADUFEMG_EMAILJS_CONFIG.template_7ersxva,
-      emailParams
+        console.log("Email notification sent successfully.");
+      } else {
+        console.error("EmailJS configuration is missing.");
+      }
+    } catch (emailError) {
+      console.error("Email notification failed:", emailError);
+    }
+
+    // Inform the customer
+    alert(
+      isBooking
+        ? "Your booking request has been saved. NADUFEMG FARM will contact you to confirm availability."
+        : "Your order has been saved. NADUFEMG FARM will contact you to confirm the details."
     );
 
-    console.log("Email notification sent successfully.");
-  } else {
-    console.error("EmailJS configuration is missing.");
-  }
-} catch (emailError) {
-  console.error("Email notification failed:", emailError);
-}
-
-// Inform the customer
-alert(
-  isBooking
-    ? "Your booking request has been saved. NADUFEMG FARM will contact you to confirm availability."
-    : "Your order has been saved. NADUFEMG FARM will contact you to confirm the details."
-);
-
-// Reset the form
-orderForm.reset();
-updateProductOptions();
-orderTypeInput.dispatchEvent(new Event("change"));
-deliveryInput.dispatchEvent(new Event("change"));
-
+    // Reset the form ONCE
     orderForm.reset();
     updateProductOptions();
     orderTypeInput.dispatchEvent(new Event("change"));
