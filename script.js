@@ -261,39 +261,59 @@ orderForm.addEventListener("submit", async function (event) {
       orderData
     );
 
-    const whatsappNumber = "2349071423253";
+    // Save the order or booking to Firebase
+const savedOrder = await window.firebaseAddDoc(
+  window.firebaseCollection(window.firebaseDB, "orders"),
+  orderData
+);
 
-    const whatsappMessage = `Hello NADUFEMG FARM 👋
+// Prepare the email notification
+const emailParams = {
+  order_id: savedOrder.id,
+  order_type: isBooking ? "Booking Request" : "New Order",
+  name: name,
+  phone: phone,
+  product: product,
+  age_type: ageType,
+  quantity: `${quantity} ${quantityUnit}`,
+  preferred_date: preferredDate || "Not specified",
+  delivery: delivery,
+  location: location || "Not provided",
+  message: message || "None"
+};
 
-I am submitting a ${isBooking ? "booking request" : "new order"}.
-
-Reference: ${savedOrder.id}
-Name: ${name}
-Phone: ${phone}
-Product: ${product}
-Age / size / type: ${ageType}
-Quantity: ${quantity} ${quantityUnit}
-Preferred date: ${preferredDate || "Not specified"}
-Fulfilment: ${delivery}
-Location: ${location || "Not provided"}
-Additional instructions: ${message || "None"}
-
-Please confirm availability and the next steps.`;
-
-    const whatsappURL =
-      "https://wa.me/" + whatsappNumber +
-      "?text=" + encodeURIComponent(whatsappMessage);
-
-    alert(isBooking
-      ? "Your booking request has been saved. It is pending until NADUFEMG FARM confirms availability."
-      : "Your order has been saved. NADUFEMG FARM will contact you to confirm the details."
+// Send email notification using EmailJS
+try {
+  if (
+    window.emailjs &&
+    window.NADUFEMG_EMAILJS_CONFIG
+  ) {
+    await window.emailjs.send(
+      window.NADUFEMG_EMAILJS_CONFIG.service_j0jr6x9,
+      window.NADUFEMG_EMAILJS_CONFIG.template_7ersxva,
+      emailParams
     );
 
-    const whatsappWindow = window.open(whatsappURL, "_blank");
+    console.log("Email notification sent successfully.");
+  } else {
+    console.error("EmailJS configuration is missing.");
+  }
+} catch (emailError) {
+  console.error("Email notification failed:", emailError);
+}
 
-    if (!whatsappWindow) {
-      window.location.href = whatsappURL;
-    }
+// Inform the customer
+alert(
+  isBooking
+    ? "Your booking request has been saved. NADUFEMG FARM will contact you to confirm availability."
+    : "Your order has been saved. NADUFEMG FARM will contact you to confirm the details."
+);
+
+// Reset the form
+orderForm.reset();
+updateProductOptions();
+orderTypeInput.dispatchEvent(new Event("change"));
+deliveryInput.dispatchEvent(new Event("change"));
 
     orderForm.reset();
     updateProductOptions();
