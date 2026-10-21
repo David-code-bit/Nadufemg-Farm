@@ -284,8 +284,8 @@ orderForm.addEventListener("submit", async function (event) {
         window.NADUFEMG_EMAILJS_CONFIG
       ) {
         await window.emailjs.send(
-          window.NADUFEMG_EMAILJS_CONFIG.serviceID,
-          window.NADUFEMG_EMAILJS_CONFIG.templateID,
+          window.NADUFEMG_EMAILJS_CONFIG.service_j0jr6x9,
+          window.NADUFEMG_EMAILJS_CONFIG.template_7ersxva,
           emailParams
         );
 
