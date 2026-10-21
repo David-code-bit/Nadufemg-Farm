@@ -1,19 +1,23 @@
+/* =========================================================
+   NADUFEMG FARM
+   Complete Website JavaScript
+   Firebase Orders, Bookings, EmailJS and Reviews
+   ========================================================= */
+
 
 /* =========================================================
    SELECT PRODUCT
-   ======================================================== */
+   ========================================================= */
 
 function selectProduct(productName) {
-
-  const productSelect =
-    document.getElementById("product");
+  const productSelect = document.getElementById("product");
 
   if (productSelect) {
     productSelect.value = productName;
+    productSelect.dispatchEvent(new Event("change"));
   }
 
-  const orderSection =
-    document.getElementById("order");
+  const orderSection = document.getElementById("order");
 
   if (orderSection) {
     orderSection.scrollIntoView({
@@ -28,107 +32,176 @@ function selectProduct(productName) {
    ========================================================= */
 
 function setupStarRating() {
-
-  const stars =
-    document.querySelectorAll(
-      ".stars-input button"
-    );
-
-  const ratingInput =
-    document.getElementById("rating");
+  const stars = document.querySelectorAll(".stars-input button");
+  const ratingInput = document.getElementById("rating");
 
   if (!ratingInput || !stars.length) {
     return;
   }
 
-  stars.forEach(function(star) {
+  stars.forEach(function (star) {
+    star.addEventListener("click", function () {
+      const rating = Number(star.getAttribute("data-rating"));
 
-    star.addEventListener(
-      "click",
-      function() {
+      ratingInput.value = rating;
 
-        const rating =
-          Number(
-            star.getAttribute("data-rating")
-          );
+      stars.forEach(function (item) {
+        item.classList.remove("active");
+      });
 
-        ratingInput.value = rating;
+      stars.forEach(function (item) {
+        const itemRating = Number(item.getAttribute("data-rating"));
 
-        stars.forEach(function(item) {
-          item.classList.remove("active");
-        });
-
-        for (let i = 0; i < rating; i++) {
-          stars[i].classList.add("active");
+        if (itemRating <= rating) {
+          item.classList.add("active");
         }
-
-      }
-    );
-
+      });
+    });
   });
-
 }
 
 
 /* =========================================================
-   ORDER / ADVANCE BOOKING FORM
-   The complete handler is defined below.
+   WAIT FOR FIREBASE
    ========================================================= */
 
+function waitForFirebase(timeoutMilliseconds = 15000) {
+  return new Promise(function (resolve, reject) {
+    if (
+      window.firebaseDB &&
+      window.firebaseCollection &&
+      window.firebaseAddDoc &&
+      window.firebaseServerTimestamp
+    ) {
+      resolve();
+      return;
+    }
 
-/* =========================
-   ORDER / ADVANCE BOOKING
-========================= */
+    let finished = false;
 
-const orderForm = document.getElementById("orderForm");
+    const timeout = setTimeout(function () {
+      if (finished) return;
+
+      finished = true;
+
+      reject(
+        new Error(
+          "Firebase did not finish loading. Check your internet connection and Firebase setup."
+        )
+      );
+    }, timeoutMilliseconds);
+
+    window.addEventListener(
+      "firebaseReady",
+      function () {
+        if (finished) return;
+
+        finished = true;
+        clearTimeout(timeout);
+        resolve();
+      },
+      { once: true }
+    );
+  });
+}
+
+
+/* =========================================================
+   PRODUCT OPTIONS
+   ========================================================= */
+
 const productInput = document.getElementById("product");
 const ageTypeInput = document.getElementById("ageType");
 const quantityUnitInput = document.getElementById("quantityUnit");
+
 const orderTypeInput = document.getElementById("orderType");
 const preferredDateInput = document.getElementById("preferredDate");
 const deliveryInput = document.getElementById("delivery");
 const locationInput = document.getElementById("location");
+
 const submitOrderButton = document.getElementById("submitOrderButton");
 
 const productChoices = {
   "Chicken": {
-    ages: ["Day-old", "1 week", "2 weeks", "3–4 weeks", "Older chicken — specify in notes"],
+    ages: [
+      "Day-old",
+      "1 week",
+      "2 weeks",
+      "3–4 weeks",
+      "Older chicken — specify in notes"
+    ],
     units: ["Birds"]
   },
+
   "Turkey": {
-    ages: ["Day-old", "1 week", "2 weeks", "3–4 weeks", "Older turkey — specify in notes"],
+    ages: [
+      "Day-old",
+      "1 week",
+      "2 weeks",
+      "3–4 weeks",
+      "Older turkey — specify in notes"
+    ],
     units: ["Birds"]
   },
+
   "Day-old chicks": {
     ages: ["Day-old"],
     units: ["Birds"]
   },
+
   "Poults": {
-    ages: ["Day-old", "1 week", "2 weeks", "3–4 weeks", "Older poult — specify in notes"],
+    ages: [
+      "Day-old",
+      "1 week",
+      "2 weeks",
+      "3–4 weeks",
+      "Older poult — specify in notes"
+    ],
     units: ["Birds"]
   },
+
   "Eggs": {
-    ages: ["Fresh eggs for eating", "Fertile eggs for hatching"],
+    ages: [
+      "Fresh eggs for eating",
+      "Fertile eggs for hatching"
+    ],
     units: ["Crates", "Pieces"]
   },
+
   "Catfish": {
-    ages: ["Fingerlings", "Juveniles", "Table-size fish", "Specify size in notes"],
+    ages: [
+      "Fingerlings",
+      "Juveniles",
+      "Table-size fish",
+      "Specify size in notes"
+    ],
     units: ["Fish", "Kilograms"]
   }
 };
 
+
+/* =========================================================
+   FILL DROPDOWN
+   ========================================================= */
+
 function fillSelect(select, values, placeholder) {
+  if (!select) return;
+
   select.innerHTML = "";
 
-  const first = document.createElement("option");
-  first.value = "";
-  first.textContent = placeholder;
-  select.appendChild(first);
+  const firstOption = document.createElement("option");
 
-  values.forEach(value => {
+  firstOption.value = "";
+  firstOption.textContent = placeholder;
+
+  select.appendChild(firstOption);
+
+  values.forEach(function (value) {
     const option = document.createElement("option");
+
     option.value = value;
     option.textContent = value;
+
     select.appendChild(option);
   });
 
@@ -137,266 +210,488 @@ function fillSelect(select, values, placeholder) {
   }
 }
 
+
+/* =========================================================
+   UPDATE PRODUCT OPTIONS
+   ========================================================= */
+
 function updateProductOptions() {
+  if (!productInput || !ageTypeInput || !quantityUnitInput) {
+    return;
+  }
+
   const selected = productChoices[productInput.value];
 
   if (!selected) {
-    fillSelect(ageTypeInput, [], "Choose a product first");
-    fillSelect(quantityUnitInput, ["Birds"], "Choose unit");
+    fillSelect(
+      ageTypeInput,
+      [],
+      "Choose a product first"
+    );
+
+    fillSelect(
+      quantityUnitInput,
+      ["Birds"],
+      "Choose unit"
+    );
+
     return;
   }
 
-  fillSelect(ageTypeInput, selected.ages, "Select age / size / type");
-  fillSelect(quantityUnitInput, selected.units, "Select quantity unit");
+  fillSelect(
+    ageTypeInput,
+    selected.ages,
+    "Select age / size / type"
+  );
 
-  document.getElementById("ageTypeHelp").textContent =
-    productInput.value === "Eggs"
-      ? "Choose fresh eggs or fertile eggs for hatching."
-      : productInput.value === "Catfish"
-      ? "Choose the fish growth stage or specify size in the notes."
-      : "Choose the age of the birds you want.";
+  fillSelect(
+    quantityUnitInput,
+    selected.units,
+    "Select quantity unit"
+  );
+
+  const help = document.getElementById("ageTypeHelp");
+
+  if (help) {
+    if (productInput.value === "Eggs") {
+      help.textContent =
+        "Choose fresh eggs or fertile eggs for hatching.";
+    } else if (productInput.value === "Catfish") {
+      help.textContent =
+        "Choose the fish growth stage or specify size in the notes.";
+    } else {
+      help.textContent =
+        "Choose the age of the birds you want.";
+    }
+  }
 }
-
-productInput.addEventListener("change", updateProductOptions);
-
-orderTypeInput.addEventListener("change", function () {
-  const booking = orderTypeInput.value === "booking";
-
-  preferredDateInput.required = booking;
-
-  document.getElementById("dateHelp").textContent = booking
-    ? "Choose a preferred date. This request is not confirmed until the farm approves it."
-    : "Optional for orders. For advance bookings, choose a preferred date.";
-
-  submitOrderButton.textContent = booking
-    ? "Send Booking Request"
-    : "Submit Order";
-});
-
-deliveryInput.addEventListener("change", function () {
-  locationInput.required = deliveryInput.value === "Delivery";
-
-  locationInput.placeholder = deliveryInput.value === "Pickup"
-    ? "Optional: town/city for pickup coordination"
-    : "Area, town/city and delivery address";
-});
-
-updateProductOptions();
-
-orderForm.addEventListener("submit", async function (event) {
-  event.preventDefault();
-
-  const name = document.getElementById("customerName").value.trim();
-  const phone = document.getElementById("phone").value.trim();
-  const product = productInput.value;
-  const ageType = ageTypeInput.value;
-  const quantity = Number(document.getElementById("quantity").value);
-  const quantityUnit = quantityUnitInput.value;
-  const orderType = orderTypeInput.value;
-  const preferredDate = preferredDateInput.value;
-  const delivery = deliveryInput.value;
-  const location = locationInput.value.trim();
-  const message = document.getElementById("message").value.trim();
-  const isBooking = orderType === "booking";
-
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    alert("Please enter a quantity of at least 1.");
-    return;
-  }
-
-  if (!product || !ageType || !quantityUnit) {
-    alert("Please select a product, age/type and quantity unit.");
-    return;
-  }
-
-  if (delivery === "Delivery" && !location) {
-    alert("Please enter the delivery location.");
-    locationInput.focus();
-    return;
-  }
-
-  if (isBooking && !preferredDate) {
-    alert("Please choose your preferred date for the advance booking.");
-    preferredDateInput.focus();
-    return;
-  }
-
-  submitOrderButton.disabled = true;
-  submitOrderButton.textContent = "Submitting...";
-
-  try {
-    if (!window.firebaseDB || !window.firebaseAddDoc) {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error(
-            "Firebase did not finish loading. Check your internet connection and Firebase setup."
-          ));
-        }, 12000);
-
-        window.addEventListener("firebaseReady", () => {
-          clearTimeout(timeout);
-          resolve();
-        }, { once: true });
-      });
-    }
-
-    const orderData = {
-      name,
-      phone,
-      product,
-      ageType,
-      quantity,
-      quantityUnit,
-      orderType: isBooking ? "booking" : "order",
-      preferredDate: preferredDate || "",
-      delivery,
-      location,
-      message,
-      status: isBooking ? "pending" : "new",
-      createdAt: window.firebaseServerTimestamp()
-    };
-
-        // Save the order or booking to Firebase
-    const savedOrder = await window.firebaseAddDoc(
-      window.firebaseCollection(window.firebaseDB, "orders"),
-      orderData
-    );
-
-    // Prepare the email notification
-    const emailParams = {
-      order_id: savedOrder.id,
-      order_type: isBooking ? "Booking Request" : "New Order",
-      name: name,
-      phone: phone,
-      product: product,
-      age_type: ageType,
-      quantity: `${quantity} ${quantityUnit}`,
-      preferred_date: preferredDate || "Not specified",
-      delivery: delivery,
-      location: location || "Not provided",
-      message: message || "None"
-    };
-
-    // Send email notification using EmailJS
-    try {
-      if (
-        window.emailjs &&
-        window.NADUFEMG_EMAILJS_CONFIG
-      ) {
-        await window.emailjs.send(
-          window.NADUFEMG_EMAILJS_CONFIG.service_j0jr6x9,
-          window.NADUFEMG_EMAILJS_CONFIG.template_7ersxva,
-          emailParams
-        );
-
-        console.log("Email notification sent successfully.");
-      } else {
-        console.error("EmailJS configuration is missing.");
-      }
-    } catch (emailError) {
-      console.error("Email notification failed:", emailError);
-    }
-
-    // Inform the customer
-    alert(
-      isBooking
-        ? "Your booking request has been saved. NADUFEMG FARM will contact you to confirm availability."
-        : "Your order has been saved. NADUFEMG FARM will contact you to confirm the details."
-    );
-
-    // Reset the form ONCE
-    orderForm.reset();
-    updateProductOptions();
-    orderTypeInput.dispatchEvent(new Event("change"));
-    deliveryInput.dispatchEvent(new Event("change"));
-
-  } catch (error) {
-    console.error("Order/booking error:", error);
-
-    alert(
-      "Sorry, your order or booking could not be saved. Please check your connection and try again.\n\nDetails: " +
-      error.message
-    );
-
-  } finally {
-    submitOrderButton.disabled = false;
-    submitOrderButton.textContent =
-      orderTypeInput.value === "booking"
-        ? "Send Booking Request"
-        : "Submit Order";
-  }
-});
 
 
 /* =========================================================
-   REVIEW FORM
+   ORDER TYPE SETTINGS
    ========================================================= */
 
-function setupReviewForm() {
-
-  const reviewForm =
-    document.getElementById(
-      "reviewForm"
-    );
-
-  if (!reviewForm) {
+function updateOrderTypeSettings() {
+  if (
+    !orderTypeInput ||
+    !preferredDateInput ||
+    !submitOrderButton
+  ) {
     return;
   }
 
+  const isBooking = orderTypeInput.value === "booking";
 
-  reviewForm.addEventListener(
+  preferredDateInput.required = isBooking;
+
+  const dateHelp = document.getElementById("dateHelp");
+
+  if (dateHelp) {
+    dateHelp.textContent = isBooking
+      ? "Choose a preferred date. The farm must confirm your booking."
+      : "Optional for orders. For advance bookings, choose your preferred date.";
+  }
+
+  submitOrderButton.textContent = isBooking
+    ? "Send Booking Request"
+    : "Submit Order";
+}
+
+
+/* =========================================================
+   DELIVERY SETTINGS
+   ========================================================= */
+
+function updateDeliverySettings() {
+  if (!deliveryInput || !locationInput) {
+    return;
+  }
+
+  locationInput.required = deliveryInput.value === "Delivery";
+
+  locationInput.placeholder =
+    deliveryInput.value === "Pickup"
+      ? "Optional: town/city for pickup coordination"
+      : "Area, town/city and delivery address";
+}
+
+
+/* =========================================================
+   EMAILJS ORDER NOTIFICATION
+   ========================================================= */
+
+async function sendOrderEmail(emailParams) {
+  const emailConfig = window.NADUFEMG_EMAILJS_CONFIG;
+
+  if (
+    !window.emailjs ||
+    !emailConfig ||
+    !emailConfig.serviceID ||
+    !emailConfig.templateID
+  ) {
+    console.error(
+      "EmailJS is unavailable or its configuration is incomplete."
+    );
+
+    return {
+      success: false,
+      reason: "EmailJS is not configured correctly."
+    };
+  }
+
+  try {
+    const response = await window.emailjs.send(
+      emailConfig.serviceID,
+      emailConfig.templateID,
+      emailParams
+    );
+
+    console.log(
+      "Email notification sent successfully.",
+      response.status
+    );
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error(
+      "Email notification failed:",
+      error
+    );
+
+    return {
+      success: false,
+      reason: error.message || "Email sending failed."
+    };
+  }
+}
+
+
+/* =========================================================
+   ORDER / ADVANCE BOOKING FORM
+   ========================================================= */
+
+const orderForm = document.getElementById("orderForm");
+
+
+if (productInput) {
+  productInput.addEventListener(
+    "change",
+    updateProductOptions
+  );
+}
+
+if (orderTypeInput) {
+  orderTypeInput.addEventListener(
+    "change",
+    updateOrderTypeSettings
+  );
+}
+
+if (deliveryInput) {
+  deliveryInput.addEventListener(
+    "change",
+    updateDeliverySettings
+  );
+}
+
+updateProductOptions();
+updateOrderTypeSettings();
+updateDeliverySettings();
+
+
+if (orderForm) {
+  orderForm.addEventListener(
     "submit",
-    async function(event) {
-
+    async function (event) {
       event.preventDefault();
 
-
       const name =
-        document.getElementById(
-          "reviewName"
-        ).value.trim();
+        document.getElementById("customerName").value.trim();
+
+      const phone =
+        document.getElementById("phone").value.trim();
+
+      const product = productInput.value;
+
+      const ageType = ageTypeInput.value;
+
+      const quantity =
+        Number(document.getElementById("quantity").value);
+
+      const quantityUnit = quantityUnitInput.value;
+
+      const orderType = orderTypeInput.value;
+
+      const preferredDate = preferredDateInput.value;
+
+      const delivery = deliveryInput.value;
+
+      const location = locationInput.value.trim();
+
+      const message =
+        document.getElementById("message").value.trim();
+
+      const isBooking = orderType === "booking";
 
 
-      const product =
-        document.getElementById(
-          "reviewProduct"
-        ).value;
+      /* VALIDATE QUANTITY */
+
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        alert("Please enter a quantity of at least 1.");
+        return;
+      }
 
 
-      const rating =
-        document.getElementById(
-          "rating"
-        ).value;
+      /* VALIDATE PRODUCT */
 
-
-      const comment =
-        document.getElementById(
-          "reviewComment"
-        ).value.trim();
-
-
-      /* CHECK RATING */
-
-      if (!rating) {
-
+      if (!product || !ageType || !quantityUnit) {
         alert(
-          "Please select a rating ⭐"
+          "Please select a product, age/type and quantity unit."
         );
 
         return;
       }
 
 
-      /* CHECK FIREBASE */
+      /* VALIDATE DELIVERY */
 
-      if (
-        !window.firebaseDB ||
-        !window.firebaseAddDoc ||
-        !window.firebaseCollection
-      ) {
+      if (!delivery) {
+        alert("Please select delivery or farm pickup.");
+        return;
+      }
+
+      if (delivery === "Delivery" && !location) {
+        alert("Please enter the delivery location.");
+
+        locationInput.focus();
+
+        return;
+      }
+
+
+      /* VALIDATE ADVANCE BOOKING DATE */
+
+      if (isBooking && !preferredDate) {
+        alert(
+          "Please choose your preferred date for the advance booking."
+        );
+
+        preferredDateInput.focus();
+
+        return;
+      }
+
+
+      /* PREVENT DUPLICATE SUBMISSIONS */
+
+      if (submitOrderButton) {
+        submitOrderButton.disabled = true;
+
+        submitOrderButton.textContent = "Submitting...";
+      }
+
+
+      try {
+        await waitForFirebase();
+
+
+        /* PREPARE FIREBASE ORDER DATA */
+
+        const orderData = {
+          name: name,
+
+          phone: phone,
+
+          product: product,
+
+          ageType: ageType,
+
+          quantity: quantity,
+
+          quantityUnit: quantityUnit,
+
+          orderType: isBooking
+            ? "booking"
+            : "order",
+
+          preferredDate: preferredDate || "",
+
+          delivery: delivery,
+
+          location: location,
+
+          message: message,
+
+          status: isBooking
+            ? "pending"
+            : "new",
+
+          createdAt: window.firebaseServerTimestamp()
+        };
+
+
+        /* SAVE ORDER OR BOOKING TO FIREBASE */
+
+        const savedOrder = await window.firebaseAddDoc(
+          window.firebaseCollection(
+            window.firebaseDB,
+            "orders"
+          ),
+          orderData
+        );
+
+
+        console.log(
+          "Order or booking saved to Firebase:",
+          savedOrder.id
+        );
+
+
+        /* PREPARE EMAIL VARIABLES */
+
+        const emailParams = {
+          order_id: savedOrder.id,
+
+          order_type: isBooking
+            ? "Booking Request"
+            : "New Order",
+
+          name: name,
+
+          phone: phone,
+
+          product: product,
+
+          age_type: ageType,
+
+          quantity: `${quantity} ${quantityUnit}`,
+
+          preferred_date: preferredDate || "Not specified",
+
+          delivery: delivery,
+
+          location: location || "Not provided",
+
+          message: message || "None"
+        };
+
+
+        /* SEND EMAIL NOTIFICATION */
+
+        const emailResult = await sendOrderEmail(emailParams);
+
+
+        /* CUSTOMER CONFIRMATION */
+
+        if (isBooking) {
+          alert(
+            "Your booking request has been saved successfully.\n\n" +
+            "Booking reference: " + savedOrder.id +
+            "\n\nNADUFEMG FARM will contact you to confirm availability."
+          );
+        } else {
+          alert(
+            "Your order has been saved successfully.\n\n" +
+            "Order reference: " + savedOrder.id +
+            "\n\nNADUFEMG FARM will contact you to confirm the details."
+          );
+        }
+
+
+        /* REPORT EMAIL STATUS IN CONSOLE */
+
+        if (!emailResult.success) {
+          console.warn(
+            "The order was saved, but the email notification was not confirmed. Check the EmailJS setup."
+          );
+        }
+
+
+        /* RESET FORM AFTER SUCCESSFUL SAVE */
+
+        orderForm.reset();
+
+        updateProductOptions();
+
+        updateOrderTypeSettings();
+
+        updateDeliverySettings();
+
+
+        /*
+          IMPORTANT:
+          There is intentionally NO WhatsApp redirect here.
+          The customer stays on the website after submission.
+        */
+
+      } catch (error) {
+        console.error(
+          "Order or booking submission error:",
+          error
+        );
 
         alert(
-          "The website is still connecting to Firebase. Please wait a moment and try again."
+          "Sorry, your order or booking could not be saved.\n\n" +
+          "Please check your internet connection and try again.\n\n" +
+          "Details: " + error.message
+        );
+
+      } finally {
+        if (submitOrderButton) {
+          submitOrderButton.disabled = false;
+
+          updateOrderTypeSettings();
+        }
+      }
+    }
+  );
+}
+
+
+/* =========================================================
+   CUSTOMER REVIEW FORM
+   ========================================================= */
+
+function setupReviewForm() {
+  const reviewForm = document.getElementById("reviewForm");
+
+  if (!reviewForm) {
+    return;
+  }
+
+  reviewForm.addEventListener(
+    "submit",
+    async function (event) {
+      event.preventDefault();
+
+      const name =
+        document.getElementById("reviewName").value.trim();
+
+      const product =
+        document.getElementById("reviewProduct").value;
+
+      const rating =
+        document.getElementById("rating").value;
+
+      const comment =
+        document.getElementById("reviewComment").value.trim();
+
+
+      /* VALIDATE RATING */
+
+      if (!rating) {
+        alert("Please select a rating ⭐");
+        return;
+      }
+
+
+      /* VALIDATE REQUIRED FIELDS */
+
+      if (!name || !product || !comment) {
+        alert(
+          "Please complete all the required review fields."
         );
 
         return;
@@ -404,39 +699,41 @@ function setupReviewForm() {
 
 
       try {
+        await waitForFirebase();
 
-        /* SAVE REVIEW TO FIRESTORE */
+
+        /* SAVE REVIEW AS PENDING */
 
         await window.firebaseAddDoc(
-
           window.firebaseCollection(
             window.firebaseDB,
             "reviews"
           ),
-
           {
             name: name,
-            product: product,
-            rating: Number(rating),
-            comment: comment,
 
-            /* REVIEW MUST BE APPROVED BY ADMIN */
+            product: product,
+
+            rating: Number(rating),
+
+            comment: comment,
 
             approved: false,
 
             status: "pending",
 
-            createdAt:
-              window.firebaseServerTimestamp()
+            createdAt: window.firebaseServerTimestamp()
           }
-
         );
 
 
         alert(
-          "Thank you for your review! ⭐❤️\n\nYour review has been submitted and is waiting for approval."
+          "Thank you for your review!\n\n" +
+          "Your review has been submitted and is waiting for admin approval."
         );
 
+
+        /* RESET REVIEW FORM */
 
         reviewForm.reset();
 
@@ -444,150 +741,98 @@ function setupReviewForm() {
         /* RESET STAR DISPLAY */
 
         const stars =
-          document.querySelectorAll(
-            ".stars-input button"
-          );
+          document.querySelectorAll(".stars-input button");
 
-        stars.forEach(function(star) {
-
-          star.classList.remove(
-            "active"
-          );
-
+        stars.forEach(function (star) {
+          star.classList.remove("active");
         });
 
-
         const ratingInput =
-          document.getElementById(
-            "rating"
-          );
+          document.getElementById("rating");
 
         if (ratingInput) {
           ratingInput.value = "";
         }
 
-
       } catch (error) {
-
         console.error(
-          "Review error:",
+          "Review submission error:",
           error
         );
 
-
         alert(
-          "Sorry, your review could not be submitted. Please try again."
+          "Sorry, your review could not be submitted.\n\n" +
+          "Please check your connection and try again."
         );
-
       }
-
     }
   );
-
 }
 
 
 /* =========================================================
-   LOAD APPROVED REVIEWS
+   LOAD APPROVED CUSTOMER REVIEWS
    ========================================================= */
 
 async function loadApprovedReviews() {
-
   const reviewsContainer =
-    document.getElementById(
-      "reviewsContainer"
-    );
-
+    document.getElementById("reviewsContainer");
 
   if (!reviewsContainer) {
     return;
   }
 
 
-  /* CHECK FIREBASE */
-
-  if (
-    !window.firebaseDB ||
-    !window.firebaseGetDocs ||
-    !window.firebaseCollection ||
-    !window.firebaseQuery ||
-    !window.firebaseWhere
-  ) {
-
-    reviewsContainer.innerHTML = `
-      <div class="review-card">
-        <p>Loading customer reviews...</p>
-      </div>
-    `;
-
-    return;
-  }
-
-
   try {
+    await waitForFirebase();
 
-    console.log(
-      "Loading approved reviews..."
+
+    /* GET ONLY APPROVED REVIEWS */
+
+    const reviewsQuery = window.firebaseQuery(
+      window.firebaseCollection(
+        window.firebaseDB,
+        "reviews"
+      ),
+
+      window.firebaseWhere(
+        "approved",
+        "==",
+        true
+      )
     );
-
-
-    const reviewsQuery =
-      window.firebaseQuery(
-
-        window.firebaseCollection(
-          window.firebaseDB,
-          "reviews"
-        ),
-
-        window.firebaseWhere(
-          "approved",
-          "==",
-          true
-        )
-
-      );
 
 
     const reviewsSnapshot =
-      await window.firebaseGetDocs(
-        reviewsQuery
-      );
+      await window.firebaseGetDocs(reviewsQuery);
 
 
-    console.log(
-      "Number of approved reviews:",
-      reviewsSnapshot.size
-    );
-
-
-    /* CLEAR ORIGINAL PLACEHOLDER */
+    /* CLEAR PLACEHOLDER */
 
     reviewsContainer.innerHTML = "";
 
 
-    /* NO APPROVED REVIEWS */
+    /* HANDLE EMPTY REVIEWS */
 
     if (reviewsSnapshot.empty) {
+      const emptyCard = document.createElement("div");
 
-      reviewsContainer.innerHTML = `
+      emptyCard.className = "review-card";
 
-        <div class="review-card">
+      const emptyMessage = document.createElement("p");
 
-          <div class="stars">
-            ⭐⭐⭐⭐⭐
-          </div>
+      emptyMessage.textContent =
+        "No approved customer reviews yet.";
 
-          <p>
-            No approved customer reviews yet.
-          </p>
+      const farmName = document.createElement("strong");
 
-          <strong>
-            NADUFEMG FARM
-          </strong>
+      farmName.textContent = "NADUFEMG FARM";
 
-        </div>
+      emptyCard.appendChild(emptyMessage);
 
-      `;
+      emptyCard.appendChild(farmName);
+
+      reviewsContainer.appendChild(emptyCard);
 
       return;
     }
@@ -595,65 +840,101 @@ async function loadApprovedReviews() {
 
     /* DISPLAY APPROVED REVIEWS */
 
-    reviewsSnapshot.forEach(function(documentSnapshot) {
+    reviewsSnapshot.forEach(function (documentSnapshot) {
+      const review = documentSnapshot.data();
 
-  const review = documentSnapshot.data();
+      const reviewCard =
+        document.createElement("div");
 
-  const reviewCard = document.createElement("div");
-  reviewCard.className = "review-card";
+      reviewCard.className = "review-card";
 
-  const starsElement = document.createElement("div");
-  starsElement.className = "stars";
-  starsElement.textContent = "⭐".repeat(
-    Math.max(0, Math.min(5, Number(review.rating) || 0))
-  );
 
-  const commentElement = document.createElement("p");
-  commentElement.textContent = String(review.comment || "");
+      /* STAR RATING */
 
-  const nameElement = document.createElement("strong");
-  nameElement.textContent = String(review.name || "Customer");
+      const starsElement =
+        document.createElement("div");
 
-  const productElement = document.createElement("p");
-  productElement.textContent =
-    "Purchased: " + String(review.product || "Not specified");
+      starsElement.className = "stars";
 
-  reviewCard.appendChild(starsElement);
-  reviewCard.appendChild(commentElement);
-  reviewCard.appendChild(nameElement);
-  reviewCard.appendChild(productElement);
+      const rating = Math.max(
+        0,
+        Math.min(
+          5,
+          Number(review.rating) || 0
+        )
+      );
 
-  reviewsContainer.appendChild(reviewCard);
+      starsElement.textContent =
+        "⭐".repeat(rating);
 
-});
 
+      /* CUSTOMER COMMENT */
+
+      const commentElement =
+        document.createElement("p");
+
+      commentElement.textContent =
+        String(review.comment || "");
+
+
+      /* CUSTOMER NAME */
+
+      const nameElement =
+        document.createElement("strong");
+
+      nameElement.textContent =
+        String(review.name || "Customer");
+
+
+      /* PURCHASED PRODUCT */
+
+      const productElement =
+        document.createElement("p");
+
+      productElement.textContent =
+        "Purchased: " +
+        String(review.product || "Not specified");
+
+
+      /* ADD ELEMENTS TO CARD */
+
+      reviewCard.appendChild(starsElement);
+
+      reviewCard.appendChild(commentElement);
+
+      reviewCard.appendChild(nameElement);
+
+      reviewCard.appendChild(productElement);
+
+
+      /* ADD CARD TO WEBSITE */
+
+      reviewsContainer.appendChild(reviewCard);
+    });
 
   } catch (error) {
-
     console.error(
-      "Review loading error:",
+      "Loading approved reviews failed:",
       error
     );
 
+    reviewsContainer.innerHTML = "";
 
-        reviewsContainer.innerHTML = "";
+    const errorCard =
+      document.createElement("div");
 
-    const errorCard = document.createElement("div");
     errorCard.className = "review-card";
 
-    const errorTitle = document.createElement("p");
-    errorTitle.textContent = "Unable to load reviews.";
+    const errorMessage =
+      document.createElement("p");
 
-    const errorMessage = document.createElement("p");
     errorMessage.textContent =
-      "Please check your internet connection and try again.";
+      "Unable to load reviews. Please check your internet connection and try again.";
 
-    errorCard.appendChild(errorTitle);
     errorCard.appendChild(errorMessage);
 
     reviewsContainer.appendChild(errorCard);
   }
-
 }
 
 
@@ -662,51 +943,28 @@ async function loadApprovedReviews() {
    ========================================================= */
 
 function initializeWebsite() {
-
   console.log(
-    "NADUFEMG FARM script.js is running."
+    "NADUFEMG FARM website JavaScript is running."
   );
-
 
   setupStarRating();
 
   setupReviewForm();
 
 
-  /*
-
-     Firebase is loaded by the module
-     inside index.html.
-
-     If Firebase is already ready,
-     load reviews immediately.
-
-     Otherwise wait for the
-     firebaseReady event.
-  */
+  /* LOAD APPROVED REVIEWS */
 
   if (window.firebaseDB) {
-
     loadApprovedReviews();
-
   } else {
-
     window.addEventListener(
       "firebaseReady",
-      function() {
-
-        console.log(
-          "Firebase is ready."
-        );
-
+      function () {
         loadApprovedReviews();
-
       },
       { once: true }
     );
-
   }
-
 }
 
 
@@ -714,17 +972,11 @@ function initializeWebsite() {
    START WEBSITE
    ========================================================= */
 
-if (
-  document.readyState === "loading"
-) {
-
+if (document.readyState === "loading") {
   document.addEventListener(
     "DOMContentLoaded",
     initializeWebsite
   );
-
 } else {
-
   initializeWebsite();
-
 }
